@@ -1,0 +1,83 @@
+const AI_INSIGHTS = [
+  {
+    id: "i1",
+    title: "Revenue Growth Slowed Due to Conversion Drop",
+    module: "Sales & CRM",
+    severity: "critical",
+    explanation: "Revenue growth decelerated this week. Root cause analysis indicates lead-to-opportunity conversion dropped from 34% to 20%, reducing new deal volume by an estimated ₱1.2M. This aligns with reduced outbound activity in the final week of April.",
+    action: "Increase outbound prospecting and review qualification criteria for inbound leads.",
+    confidence: 87,
+    metric: "Lead Conversion Rate",
+    causes: ["Outbound volume dropped 28%", "Inbound quality declined", "Top performer on leave"],
+    affected: ["Sales & CRM", "Revenue Forecast", "Finance"],
+    impact: "₱1.2M revenue risk",
+  },
+  {
+    id: "i2",
+    title: "Project Delays Increasing from Review Bottleneck",
+    module: "Operations",
+    severity: "warning",
+    explanation: "Task review stage throughput dropped 38% this month. 23 tasks are currently stuck in review averaging 4.8 days each. This has cascaded to 5 project timeline slippages, affecting an estimated ₱780,000 in contracted deliverable value.",
+    action: "Temporarily add one additional project reviewer and clear backlog within 72 hours.",
+    confidence: 83,
+    metric: "Task Review Throughput",
+    causes: ["Single reviewer bottleneck", "Review SLA not enforced", "Task complexity increased"],
+    affected: ["Operations", "Projects", "Tasks", "Finance"],
+    impact: "5 projects delayed",
+  },
+  {
+    id: "i3",
+    title: "Email Campaign Engagement Increased Significantly",
+    module: "Marketing",
+    severity: "positive",
+    explanation: "Marketing email campaigns this week achieved a 34% open rate and 12% CTR, significantly above baseline averages of 21% and 6%. AI analysis credits personalized subject lines and optimal send timing for the improvement.",
+    action: "Scale this campaign approach to the remaining lead segments and allocate additional budget.",
+    confidence: 91,
+    metric: "Email Open Rate",
+    causes: ["Subject line A/B test winner", "Optimal send time (10AM Tue)", "Segment quality improved"],
+    affected: ["Marketing", "Sales Pipeline", "Revenue Forecast"],
+    impact: "+47 qualified leads",
+  },
+  {
+    id: "i4",
+    title: "Inventory Risk Escalated for High-Demand SKUs",
+    module: "Inventory",
+    severity: "critical",
+    explanation: "SKU-009 stock level dropped to 8% while demand increased 34% month-over-month. If no action is taken within 72 hours, a stockout is predicted within 10 days. Supplier lead time is 12 days, creating a potential 2-day shortage gap.",
+    action: "Place emergency restock order for SKU-009 and identify alternative supplier.",
+    confidence: 91,
+    metric: "SKU-009 Stock Level",
+    causes: ["Demand spike +34%", "Restocking delayed 5 days", "Safety stock threshold missed"],
+    affected: ["Inventory", "Operations", "Finance", "Customer Satisfaction"],
+    impact: "Potential ₱420,000 lost revenue",
+  },
+  {
+    id: "i5",
+    title: "HR Attendance Anomaly Detected in Department A",
+    module: "HR",
+    severity: "warning",
+    explanation: "Department A recorded a 23% absence rate this week, versus the baseline of 8%. This is statistically abnormal and correlates with a recent policy change and overtime spike. Team engagement score dropped 18% in the same period.",
+    action: "Conduct team wellness check and review overtime policy application.",
+    confidence: 76,
+    metric: "Attendance Rate",
+    causes: ["Policy change friction", "Overtime hours +45%", "Manager conflict reported"],
+    affected: ["HR", "Operations", "Project Timelines"],
+    impact: "3 deliverables at risk",
+  },
+];
+
+const RECOMMENDATIONS = [
+  { id: "rec1", priority: 1, title: "Contact High-Value Leads Immediately", impact: "₱812,500 pipeline", effort: "Low", owner: "James Reyes", status: "pending", module: "CRM" },
+  { id: "rec2", priority: 2, title: "Place Emergency Restock Order: SKU-009", impact: "₱420,000 revenue protection", effort: "Low", owner: "Miguel Torres", status: "pending", module: "Inventory" },
+  { id: "rec3", priority: 3, title: "Reassign Blocked Tasks in Review Queue", impact: "5 projects unblocked", effort: "Medium", owner: "Sofia Mendoza", status: "in_progress", module: "Operations" },
+  { id: "rec4", priority: 4, title: "Conduct HR Retention Interviews: Dept A", impact: "Reduce attrition risk", effort: "Medium", owner: "Ana Lim", status: "pending", module: "HR" },
+  { id: "rec5", priority: 5, title: "Scale Winning Email Campaign to Full List", impact: "+94 projected leads", effort: "Low", owner: "Sofia Mendoza", status: "pending", module: "Marketing" },
+  { id: "rec6", priority: 6, title: "Investigate Cash Flow Risk for July", impact: "₱2.1M exposure", effort: "High", owner: "Carlos Dela Cruz", status: "pending", module: "Finance" },
+];
+
+export async function getAIInsightsDashboard() {
+  return {
+    insights: AI_INSIGHTS,
+    recommendations: RECOMMENDATIONS,
+  };
+}

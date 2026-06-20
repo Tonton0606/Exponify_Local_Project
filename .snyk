@@ -1,0 +1,12 @@
+# Snyk (https://snyk.io) policy file
+version: v1.25.1
+ignore:
+  GHSA-w5hq-g745-h8pq:
+    - exceljs > uuid:
+        reason: >
+          exceljs@4.4.0 is the latest release and uses uuid internally for
+          cell ID generation — it never passes user-supplied buf to uuid.v3/v5/v6.
+          No upgrade path exists without downgrading exceljs (breaking Excel exports).
+          Accepted risk: moderate severity, not exploitable via this code path.
+        expires: '2026-12-31T00:00:00.000Z'
+patch: {}

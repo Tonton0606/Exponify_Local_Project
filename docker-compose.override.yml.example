@@ -1,0 +1,72 @@
+# =============================================================================
+# docker-compose.override.yml — Dev mode overrides
+# SETUP: cp docker-compose.override.yml.example docker-compose.override.yml
+#
+# Applied automatically by `docker compose up` when named
+# docker-compose.override.yml (no -f flag needed).
+#
+# For production (skips overrides):
+#   docker compose -f docker-compose.yml up -d
+# =============================================================================
+
+version: "3.9"
+
+services:
+
+  # ── Redis: expose port in dev for redis-cli from host ────────────────────────
+  redis:
+    ports:
+      - "6379:6379"
+
+  # ── Server: hot-reload + Node inspector + verbose logging ────────────────────
+  server:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.server.dev
+    environment:
+      NODE_ENV: development
+      SERVICE_NAME: "hermes-api-dev"
+      LOG_LEVEL: debug
+      WAIT_FOR_REDIS: "true"
+    volumes:
+      # Live source changes picked up by nodemon
+      - ./server:/app
+      # Keep container's node_modules — never shadow with host's
+      - /app/node_modules
+      - ./docker/pm2.config.js:/app/pm2.config.js:ro
+    ports:
+      # API exposed directly in dev for Postman / curl
+      - "5000:5000"
+      # Node.js inspector — attach from VS Code or chrome://inspect
+      - "9229:9229"
+    command: ["nodemon", "--inspect=0.0.0.0:9229", "server.js"]
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+          cpus: "2.00"
+
+  # ── Client: Vite dev server with HMR ─────────────────────────────────────────
+  client:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.client.dev
+    environment:
+      VITE_API_URL: http://localhost:5000
+      CHOKIDAR_USEPOLLING: "true"
+    volumes:
+      - ./client:/app
+      - /app/node_modules
+    ports:
+      - "5173:5173"
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:5173/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    deploy:
+      resources:
+        limits:
+          memory: 768m
+          cpus: "1.50"

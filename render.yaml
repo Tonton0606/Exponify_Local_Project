@@ -1,0 +1,74 @@
+services:
+  # Backend API Service
+  - type: web
+    name: hermes-backend
+    env: docker
+    runtime: docker
+    dockerfilePath: ./docker/Dockerfile.server
+    dockerContext: .
+    plan: standard
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 5000
+      - key: FRONTEND_URL
+        value: https://hermesv2-frontend.onrender.com
+      - key: BASE_URL
+        sync: false
+      - key: PUBLIC_BASE_URL
+        sync: false
+      - key: FACEBOOK_WEBHOOKS
+        sync: false
+      - key: TIKTOK_WEBHOOKS
+        sync: false
+      - key: FB_VERIFY_TOKEN
+        sync: false
+      - key: FB_APP_SECRET
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+    healthCheckPath: /health
+
+  # Static Site Service for Frontend
+  - type: web
+    name: hermes-frontend
+    env: static
+    buildCommand: cd client && npm install && npm run build
+    staticPublishPath: ./client/dist
+    rootDir: .
+    nodeVersion: 20
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: VITE_SUPABASE_URL
+        sync: false
+      - key: VITE_SUPABASE_ANON_KEY
+        sync: false
+      - key: VITE_API_BASE_URL
+        value: https://hermesbackend-j1w5.onrender.com/api
+      - key: VITE_API_URL
+        value: https://hermesbackend-j1w5.onrender.com/api
+    routes:
+      - type: rewrite
+        source: /Admin/*
+        destination: /index.html
+      - type: rewrite
+        source: /Client/*
+        destination: /index.html
+      - type: rewrite
+        source: /auth
+        destination: /index.html
+      - type: rewrite
+        source: /login
+        destination: /index.html
+      - type: rewrite
+        source: /signup
+        destination: /index.html
+      - type: rewrite
+        source: /*
+        destination: /index.html
