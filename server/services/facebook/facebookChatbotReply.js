@@ -38,13 +38,7 @@ function createFacebookChatbotReplyService({
       env.INTERNAL_CHATBOT_URL ||
       `http://127.0.0.1:${env.PORT || 5000}/api/openclaude/chat`;
 
-    const preferredProvider = (env.GROQ_API_KEY || env.VITE_GROQ_API_KEY)
-      ? "groq"
-      : env.GEMINI_API_KEY
-        ? "gemini"
-        : env.NVIDIA_API_KEY
-          ? "nvidia"
-          : "";
+    const preferredProvider = "";
     const buildRequestBody = (provider = "") => ({
         messages,
         model: defaultChatbotModel,
