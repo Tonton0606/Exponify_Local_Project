@@ -912,6 +912,44 @@ export default function HumanHandoffs({ workspaceId, pageId = "", pages = [] }) 
                   disabled={sendingReply}
                 />
                 <button
+                  type="button"
+                  onClick={() => setShowConfirmModal(true)}
+                  disabled={sendingReply || uploadingMedia || enablingChatbot}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    padding: "0 16px",
+                    height: "42px",
+                    borderRadius: "10px",
+                    background: "rgba(255, 255, 255, 0.05)",
+                    border: "1px solid rgba(255, 255, 255, 0.1)",
+                    color: "#e2e8f0",
+                    fontSize: "14px",
+                    fontWeight: 500,
+                    cursor: (sendingReply || uploadingMedia || enablingChatbot) ? "not-allowed" : "pointer",
+                    transition: "all 0.2s ease",
+                    whiteSpace: "nowrap",
+                    opacity: (sendingReply || uploadingMedia || enablingChatbot) ? 0.5 : 1
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!sendingReply && !uploadingMedia && !enablingChatbot) {
+                      e.currentTarget.style.background = "rgba(255, 255, 255, 0.1)";
+                      e.currentTarget.style.borderColor = "var(--primary-gold)";
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!sendingReply && !uploadingMedia && !enablingChatbot) {
+                      e.currentTarget.style.background = "rgba(255, 255, 255, 0.05)";
+                      e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.1)";
+                    }
+                  }}
+                  title="Re-enable Chatbot AI"
+                >
+                  <span style={{ fontSize: "16px" }}>🤖</span>
+                  <span className="hidden sm:inline">Enable AI</span>
+                </button>
+                <button
                   type="submit"
                   className="facebook-connect-button facebook-connect-button-primary px-6"
                   disabled={sendingReply || uploadingMedia || (!replyText.trim() && !mediaUrlToSend)}

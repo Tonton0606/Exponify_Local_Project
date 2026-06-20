@@ -155,6 +155,42 @@ async function callViaGroq({ messages, model, options, apiKey }) {
   };
 }
 
+async function callViaGpt4Free({ messages, model, options }) {
+  const gpt4freeUrl = process.env.GPT4FREE_API_URL || "http://127.0.0.1:1337/v1/chat/completions";
+  const selectedModel = model || "gpt-3.5-turbo";
+  logger.debug("[callOpenClaude] Invoking Gpt4Free API", { model: selectedModel });
+
+  const response = await fetch(gpt4freeUrl, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: selectedModel,
+      messages: buildPromptedMessages(messages, options),
+    }),
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    const error = new Error(data?.error?.message || response.statusText || "Gpt4Free request failed");
+    error.status = response.status;
+    error.details = data;
+    throw error;
+  }
+
+  const text = data?.choices?.[0]?.message?.content || "No response text returned.";
+  return {
+    id: data.id || "g4f_" + Date.now(),
+    type: "message",
+    role: "assistant",
+    content: [{ type: "text", text }],
+    model: data.model || selectedModel,
+    stop_reason: data?.choices?.[0]?.finish_reason || "end_turn",
+  };
+}
+
 async function callViaNvidia({ messages, model, options, apiKey }) {
   const selectedModel = model || options?.nvidiaModel || DEFAULT_NVIDIA_MODEL;
   logger.debug("[callOpenClaude] Invoking NVIDIA API", { model: selectedModel });
@@ -323,12 +359,11 @@ async function callViaCerebras({ messages, model, options, apiKey }) {
 async function callOpenClaude({ messages, model, options }) {
   const groqCredentials = getGroqCredentials(options);
   const groqApiKey = groqCredentials.apiKey;
+  const groqApiKey2 = normalizeApiKey(process.env.GROQ_API_KEY_2);
   const nvidiaApiKey = normalizeApiKey(process.env.NVIDIA_API_KEY);
   const geminiApiKey = normalizeApiKey(process.env.GEMINI_API_KEY);
   const openRouterApiKey = normalizeApiKey(process.env.OPENROUTER_API_KEY);
-  const openClaudeApiKey = normalizeApiKey(process.env.OPENCLAUDE_API_KEY);
   const cerebrasApiKey = normalizeApiKey(process.env.CEREBRAS_API_KEY_FB || process.env.CEREBRAS_API_KEY);
-  const defaultModel = groqApiKey ? groqCredentials.model : "claude-3-sonnet-20240229";
 
   if (groqCredentials.isHomepageSurface && !groqApiKey) {
     const error = new Error("HOME_GROQ_API_KEY is missing for the homepage chatbot.");
@@ -336,137 +371,88 @@ async function callOpenClaude({ messages, model, options }) {
     throw error;
   }
 
-  logger.debug("[callOpenClaude] Using API:", {
-    isHomepage: groqCredentials.isHomepageSurface,
-    usingGroq: Boolean(groqApiKey),
-    groqModel: groqCredentials.model,
-  });
-
+  // 1. Explicit Provider Overrides (for testing)
   if (options?.provider === "cerebras" && cerebrasApiKey) {
-    return callViaCerebras({
-      messages,
-      model: options?.cerebrasModel || process.env.CEREBRAS_MODEL || "gpt-oss-120b",
-      options,
-      apiKey: cerebrasApiKey,
-    });
+    return callViaCerebras({ messages, model: options?.cerebrasModel || process.env.CEREBRAS_MODEL || "gpt-oss-120b", options, apiKey: cerebrasApiKey });
   }
-
   if (options?.provider === "gemini" && geminiApiKey) {
-    return callViaGemini({
-      messages,
-      model: options?.geminiModel || DEFAULT_GEMINI_MODEL,
-      options,
-      apiKey: geminiApiKey,
-    });
+    return callViaGemini({ messages, model: options?.geminiModel || DEFAULT_GEMINI_MODEL, options, apiKey: geminiApiKey });
   }
-
   if (options?.provider === "nvidia" && nvidiaApiKey) {
-    return callViaNvidia({
-      messages,
-      model: options?.nvidiaModel || DEFAULT_NVIDIA_MODEL,
-      options,
-      apiKey: nvidiaApiKey,
-    });
+    return callViaNvidia({ messages, model: options?.nvidiaModel || DEFAULT_NVIDIA_MODEL, options, apiKey: nvidiaApiKey });
+  }
+  if (options?.provider === "groq" && groqApiKey) {
+    return callViaGroq({ messages, model, options, apiKey: groqApiKey });
   }
 
-  if (groqApiKey) {
+  // 2. Fallback Chain for Live Webhook & Default Routing
+  // Chain: gpt4free -> groq1 -> groq2 -> gemini flash 2.5 -> nvidia llama 30b -> openrouter llama 30b
+  
+  const tryProvider = async (providerName, callFn, args) => {
     try {
-      return await callViaGroq({ messages, model, options, apiKey: groqApiKey });
-    } catch (error) {
-      if (groqCredentials.isHomepageSurface || !isProviderAuthError(error)) {
-        throw error;
-      }
-
-      logger.warn("[callOpenClaude] Groq auth failed; trying fallback provider", {
-        status: error.status,
-        hasNvidia: Boolean(nvidiaApiKey),
-        hasGemini: Boolean(geminiApiKey),
-        hasOpenRouter: Boolean(openRouterApiKey),
-        hasOpenClaude: Boolean(openClaudeApiKey),
-      });
+      return await callFn(args);
+    } catch (err) {
+      logger.warn(`[callOpenClaude] Fallback chain: ${providerName} failed`, { error: err.message });
+      return null;
     }
-  }
-
-  if (nvidiaApiKey) {
-    return callViaNvidia({
-      messages,
-      model: options?.nvidiaModel || DEFAULT_NVIDIA_MODEL,
-      options,
-      apiKey: nvidiaApiKey,
-    });
-  }
-
-  if (geminiApiKey) {
-    return callViaGemini({
-      messages,
-      model: options?.geminiModel || DEFAULT_GEMINI_MODEL,
-      options,
-      apiKey: geminiApiKey,
-    });
-  }
-
-  if (openRouterApiKey) {
-    if (!openRouterApiKey.startsWith("sk-or-v1-")) {
-      const error = new Error("OPENROUTER_API_KEY appears invalid. Expected a key starting with sk-or-v1-");
-      error.status = 500;
-      throw error;
-    }
-
-    return callViaOpenRouter({ messages, model, options, apiKey: openRouterApiKey });
-  }
-
-  const apiKey = openClaudeApiKey;
-
-  if (!apiKey) {
-    const userMessage = messages?.[messages.length - 1]?.content || "";
-    return {
-      id: "demo_" + Date.now(),
-      type: "message",
-      role: "assistant",
-      content: [
-        {
-          type: "text",
-          text: `Demo mode: no AI API key configured yet. You said: ${userMessage}`,
-        },
-      ],
-      model: model || defaultModel,
-      stop_reason: "end_turn",
-      demo_mode: true,
-    };
-  }
-
-  const payload = {
-    model: model || defaultModel,
-    max_tokens: options?.maxTokens || 2048,
-    temperature: options?.temperature ?? 0.7,
-    messages: buildPromptedMessages(messages, options),
   };
 
-  if (apiKey.startsWith("sk-or-v1-")) {
-    return callViaOpenRouter({ messages, model, options, apiKey });
+  let result;
+
+  // Step 1: Gpt4Free (Main)
+  result = await tryProvider("gpt4free", callViaGpt4Free, { messages, model, options });
+  if (result) return result;
+
+  // Step 2: Groq 1
+  if (groqApiKey) {
+    result = await tryProvider("groq1", callViaGroq, { messages, model, options, apiKey: groqApiKey });
+    if (result) return result;
   }
 
-  const response = await fetch(OPENCLAUDE_API_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01",
-    },
-    body: JSON.stringify(payload),
-  });
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    const error = new Error(data?.error?.message || response.statusText || "OpenClaude request failed");
-    error.status = response.status;
-    error.details = data;
-    throw error;
+  // Step 3: Groq 2
+  if (groqApiKey2) {
+    result = await tryProvider("groq2", callViaGroq, { messages, model, options, apiKey: groqApiKey2 });
+    if (result) return result;
   }
 
-  return data;
+  // Step 4: Gemini Flash 2.5
+  if (geminiApiKey) {
+    result = await tryProvider("gemini", callViaGemini, { messages, model: "gemini-2.5-flash", options, apiKey: geminiApiKey });
+    if (result) return result;
+  }
+
+  // Step 5: NVIDIA llama 30b (or default NVIDIA model)
+  if (nvidiaApiKey) {
+    result = await tryProvider("nvidia", callViaNvidia, { messages, model: DEFAULT_NVIDIA_MODEL, options, apiKey: nvidiaApiKey });
+    if (result) return result;
+  }
+
+  // Step 6: OpenRouter -> Llama 30b (llama 3.3 70b)
+  if (openRouterApiKey) {
+    const openRouterModel = process.env.OPENROUTER_CHATBOT_MODEL || "meta-llama/llama-3.3-70b-instruct:free";
+    result = await tryProvider("openrouter", callViaOpenRouter, { messages, model: openRouterModel, options, apiKey: openRouterApiKey });
+    if (result) return result;
+  }
+
+  // If everything fails, throw an error or return a demo message
+  const userMessage = messages?.[messages.length - 1]?.content || "";
+  return {
+    id: "demo_" + Date.now(),
+    type: "message",
+    role: "assistant",
+    content: [
+      {
+        type: "text",
+        text: `Demo mode: All AI API providers failed or are unconfigured. You said: ${userMessage}`,
+      },
+    ],
+    model: "fallback-demo",
+    stop_reason: "end_turn",
+    demo_mode: true,
+  };
 }
+
+
 
 function buildHomepageSystemPrompt() {
   return `You are Hermes's homepage AI assistant.\n\nRules:\n- Explain the product clearly and in more detail when asked.\n- Focus on what Hermes does, how it helps businesses, and how the modules work together.\n- Keep the tone friendly, natural, and helpful.\n- Reply in the user's language, including Taglish when appropriate.\n- Do not mention Facebook page details, other channels, or internal routing.\n- Do not suggest visiting a website link unless the user explicitly asks for it.\n- Do not invent pricing, guarantees, or unsupported features.\n- If information is missing, say that it is not listed yet and offer to clarify the available modules.`;
