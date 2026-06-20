@@ -66,6 +66,7 @@ const allowedCorsOrigins = [
   "https://exponify.ph",
   "https://www.exponify.ph",
   "https://hermesv2-frontend.onrender.com",
+  "https://chatbot-integration-frontend.onrender.com",
   "http://192.168.8.160:3000",
   "http://192.168.100.19:3000",
   "http://192.168.100.19:5173",

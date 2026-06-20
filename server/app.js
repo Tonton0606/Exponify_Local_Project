@@ -34,6 +34,7 @@ const allowedOrigins = [
   "https://exponify.ph",
   "https://www.exponify.ph",
   "https://hermesv2-frontend.onrender.com",
+  "https://chatbot-integration-frontend.onrender.com",
   process.env.FRONTEND_URL,
 ].filter(Boolean);
 
