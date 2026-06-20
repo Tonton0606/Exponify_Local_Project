@@ -157,7 +157,8 @@ async function callViaGroq({ messages, model, options, apiKey }) {
 
 async function callViaGpt4Free({ messages, model, options }) {
   const gpt4freeUrl = process.env.GPT4FREE_API_URL || "http://127.0.0.1:1337/v1/chat/completions";
-  const selectedModel = model || "gpt-3.5-turbo";
+  // Ignore Groq/Nvidia specific model IDs and use a universally free gpt4free model
+  const selectedModel = process.env.GPT4FREE_MODEL || "gpt-4o";
   logger.debug("[callOpenClaude] Invoking Gpt4Free API", { model: selectedModel });
 
   const response = await fetch(gpt4freeUrl, {
