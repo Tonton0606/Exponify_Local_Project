@@ -156,21 +156,31 @@ async function callViaGroq({ messages, model, options, apiKey }) {
 }
 
 async function callViaGpt4Free({ messages, model, options }) {
-  const gpt4freeUrl = process.env.GPT4FREE_API_URL || "http://127.0.0.1:1337/v1/chat/completions";
-  // Ignore Groq/Nvidia specific model IDs and use a universally free gpt4free model
-  const selectedModel = process.env.GPT4FREE_MODEL || "gpt-4o";
+  const gpt4freeUrl = process.env.GPT4FREE_API_URL || "https://hermes-gpt4free.onrender.com/v1/chat/completions";
+  // Use gpt-3.5-turbo because it has the most stable and abundant free providers on g4f
+  const selectedModel = process.env.GPT4FREE_MODEL || "gpt-3.5-turbo";
   logger.debug("[callOpenClaude] Invoking Gpt4Free API", { model: selectedModel });
 
-  const response = await fetch(gpt4freeUrl, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: selectedModel,
-      messages: buildPromptedMessages(messages, options),
-    }),
-  });
+  // Add a strict 15-second timeout so we don't hang the Facebook webhook
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+  let response;
+  try {
+    response = await fetch(gpt4freeUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      signal: controller.signal,
+      body: JSON.stringify({
+        model: selectedModel,
+        messages: buildPromptedMessages(messages, options),
+      }),
+    });
+  } finally {
+    clearTimeout(timeoutId);
+  }
 
   const data = await response.json();
 
