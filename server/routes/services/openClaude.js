@@ -157,9 +157,10 @@ async function callViaGroq({ messages, model, options, apiKey }) {
 
 async function callViaGpt4Free({ messages, model, options }) {
   const gpt4freeUrl = process.env.GPT4FREE_API_URL || "https://hermes-gpt4free.onrender.com/v1/chat/completions";
-  // Use gpt-3.5-turbo because it has the most stable and abundant free providers on g4f
-  const selectedModel = process.env.GPT4FREE_MODEL || "gpt-3.5-turbo";
-  logger.debug("[callOpenClaude] Invoking Gpt4Free API", { model: selectedModel });
+  const selectedModel = process.env.GPT4FREE_MODEL || "gpt-4o-mini";
+  const apiKey = process.env.GPT4FREE_API_KEY || "dummy";
+
+  logger.debug("[callViaGpt4Free] Invoking Gpt4Free API", { url: gpt4freeUrl, model: selectedModel });
 
   // Add a strict 15-second timeout so we don't hang the Facebook webhook
   const controller = new AbortController();
@@ -171,27 +172,45 @@ async function callViaGpt4Free({ messages, model, options }) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`,
       },
       signal: controller.signal,
       body: JSON.stringify({
         model: selectedModel,
         messages: buildPromptedMessages(messages, options),
+        stream: false,
       }),
     });
   } finally {
     clearTimeout(timeoutId);
   }
 
-  const data = await response.json();
+  logger.debug("[callViaGpt4Free] Response status", { status: response.status });
 
-  if (!response.ok) {
-    const error = new Error(data?.error?.message || response.statusText || "Gpt4Free request failed");
-    error.status = response.status;
-    error.details = data;
-    throw error;
+  const rawText = await response.text();
+  
+  let data;
+  try {
+    data = JSON.parse(rawText);
+  } catch (err) {
+    logger.error("[callViaGpt4Free] Parse error", { error: err.message, raw: rawText.substring(0, 500) });
+    throw new Error("GPT4Free returned non-JSON response");
   }
 
-  const text = data?.choices?.[0]?.message?.content || "No response text returned.";
+  if (!response.ok) {
+    const errorMsg = data?.error?.message || data?.detail || response.statusText || "Unknown Error";
+    logger.error("[callViaGpt4Free] Error from API", { error: errorMsg, status: response.status });
+    throw new Error(`GPT4Free API error: ${response.status} ${errorMsg}`);
+  }
+
+  logger.debug("[callViaGpt4Free] Parsed response", { data });
+
+  const text = data?.choices?.[0]?.message?.content || data?.choices?.[0]?.text;
+
+  if (!text) {
+    throw new Error("GPT4Free returned empty response");
+  }
+
   return {
     id: data.id || "g4f_" + Date.now(),
     type: "message",
